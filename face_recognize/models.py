@@ -38,7 +38,7 @@ class Badpeople(models.Model):
             # Извлечение характеристик лица
             self.feature = extract_face_features(face_image)
         self.save()
-    '''     
+     
     def create_feature(self):
         # Загрузка изображения с помощью OpenCV
         image = cv2.imread(self.image.path)
@@ -48,6 +48,14 @@ class Badpeople(models.Model):
     
         # Извлечение характеристик лица
         self.feature = extract_face_features(image)
+        self.save()'''
+    def create_feature(self):
+        image = cv2.imread(self.image.path)
+        faces = detect_faces(self.image.path)
+        for face in faces:
+            face_image = image[face[1]:face[1]+face[3], face[0]:face[0]+face[2]]
+            face_features = extract_face_features(face_image)
+        self.feature = face_features
         self.save()
 
     def save(self, *args, **kwargs):
@@ -112,7 +120,7 @@ def extract_face_features(face_image):
     shape = shape_predictor(gray, dlib.rectangle(0, 0, face_image.shape[1], face_image.shape[0]))
     # Преобразование формата ключевых точек в список координат
     face_features = [(shape.part(i).x, shape.part(i).y) for i in range(68)]
-    return face_features'''
+    return face_features
 
 def extract_face_features(face_image):
     # Инициализация модели распознавания лиц
@@ -146,8 +154,66 @@ def extract_face_features(face_image):
         
         face_features_list.append(face_features)
     
-    return face_features_list
+    return face_features_list'''
 
+def extract_face_features(face_image):
+    config_path = "/home/myrza/computer_vision/cfg/yolov4.cfg"
+    weights_path = "/home/myrza/computer_vision/weghts/yolov4(1).weights"
+    net = cv2.dnn.readNetFromDarknet(config_path, weights_path)
+    # Преобразование изображения в формат RGB
+    image_rgb = cv2.cvtColor(face_image, cv2.COLOR_BGR2RGB)
+
+    # Передача изображения через сеть YOLO и получение результатов
+    blob = cv2.dnn.blobFromImage(image_rgb, 1 / 255.0, (416, 416), swapRB=True, crop=False)
+    net.setInput(blob)
+    layer_names = net.getLayerNames()
+    print(layer_names)
+    print('jgjgfcghfcgheufh')
+    unconnected_layers = net.getUnconnectedOutLayers()
+    print('jgjgfcghfcgheufh')
+    outs = None  # Объявление переменной outs до использования
+    print('finish')
+    if len(unconnected_layers) > 0:
+        output_layers = [layer_names[i - 1] for i in net.getUnconnectedOutLayers()]
+        outs = net.forward(output_layers)
+    
+    print("Ошибка: не удалось получить несвязанные слои сети YOLO.")
+    
+
+    # Проверка наличия результатов обнаружения лиц
+    if outs is None:
+        print("Ошибка: не удалось получить результаты обнаружения лиц.")
+        return None
+
+    # Обработка результатов обнаружения лиц
+    print('jgjgfcghfcgheufh')
+    face_detections = []
+    for out in outs:
+        for detection in out:
+            scores = detection[5:]
+            class_id = np.argmax(scores)
+            confidence = scores[class_id]
+            if confidence > 0.5 and class_id == 0:  # Проверка, что обнаруженный объект - лицо
+                center_x = int(detection[0] * face_image.shape[1])
+                center_y = int(detection[1] * face_image.shape[0])
+                width = int(detection[2] * face_image.shape[1])
+                height = int(detection[3] * face_image.shape[0])
+                x = int(center_x - width / 2)
+                y = int(center_y - height / 2)
+                face_detections.append([x, y, width, height])
+
+    # Проверка наличия лиц на изображении
+    if not face_detections:
+        print("На изображении не найдено лиц.")
+        return None
+    
+    face_features_list = []
+    print('finish')
+    print(face_detections)
+    print('между')
+    # Здесь будет ваш код для извлечения характеристик лиц
+    
+    return face_detections
 
 def detect_faces(image_path):
     # Загрузка каскадного классификатора для детекции лиц
@@ -246,7 +312,7 @@ def get_gender(face_image):
     return gender
 
 
-print(get_face('/home/myrza/computer_vision/media/check/три.jpeg'))
+print(get_face('/home/myrza/computer_vision/media/check/моефото.jpg'))
 
 
 
